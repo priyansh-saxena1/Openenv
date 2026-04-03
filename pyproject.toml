@@ -16,6 +16,9 @@ dependencies = [
     "openenv>=0.1.0",
 ]
 
+[project.scripts]
+server = "server.app:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
