@@ -7,44 +7,36 @@ from typing import List
 from openai import OpenAI
 import httpx
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-3.5-turbo")
-API_KEY = os.environ.get("OPENAI_API_KEY", "dummy")
+API_KEY = os.environ.get("HF_TOKEN") or os.environ.get("API_KEY") or os.environ.get("OPENAI_API_KEY", "dummy")
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
-TASK_NAME = os.environ.get("TASK_NAME", "easy")
+TASKS = os.environ.get("TASKS", "easy,medium,hard")
 MAX_STEPS = int(os.environ.get("MAX_STEPS", "5"))
 SUCCESS_SCORE_THRESHOLD = float(os.environ.get("SUCCESS_SCORE_THRESHOLD", "0.7"))
 MAX_TOTAL_REWARD = float(os.environ.get("MAX_TOTAL_REWARD", "1.0"))
 
 
 def log_start(task, env, model):
-    print(json.dumps({
-        "type": "START",
-        "task": task,
-        "env": env,
-        "model": model,
-    }), flush=True)
+    print(f"[START] task={task} env={env} model={model}", flush=True)
 
 
 def log_step(step, action, reward, done, error):
-    print(json.dumps({
-        "type": "STEP",
-        "step": step,
-        "action": action,
-        "reward": float(reward),
-        "done": bool(done),
-        "error": error,
-    }), flush=True)
+    err = "null" if error is None else str(error)
+    done_str = "true" if done else "false"
+    print(
+        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_str} error={err}",
+        flush=True,
+    )
 
 
-def log_end(success, steps, score, rewards):
-    print(json.dumps({
-        "type": "END",
-        "success": bool(success),
-        "steps": steps,
-        "score": float(score),
-        "rewards": [float(r) for r in rewards],
-    }), flush=True)
+def log_end(success, steps, rewards):
+    success_str = "true" if success else "false"
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(
+        f"[END] success={success_str} steps={steps} rewards={rewards_str}",
+        flush=True,
+    )
 
 
 def get_model_message(client: OpenAI, observation: dict, history: List[str]) -> str:
@@ -75,51 +67,56 @@ History: {history}
 
 async def main():
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-    rewards = []
-    history = []
-    steps_taken = 0
-    score = 0.0
-    success = False
+    tasks = [task.strip() for task in TASKS.split(",") if task.strip()]
 
-    log_start(task=TASK_NAME, env="pytorch-debug-env", model=MODEL_NAME)
+    for task in tasks:
+        rewards = []
+        history = []
+        steps_taken = 0
 
-    async with httpx.AsyncClient(timeout=60.0) as session:
-        reset_resp = await session.post(f"{ENV_URL}/reset", params={"task_id": TASK_NAME})
-        reset_resp.raise_for_status()
-        result = reset_resp.json()
-        session_id = result.get("session_id")
-        observation = result["observation"]
+        log_start(task=task, env="pytorch-debug-env", model=MODEL_NAME)
 
-        for step in range(1, MAX_STEPS + 1):
-            if result.get("done"):
-                break
+        async with httpx.AsyncClient(timeout=60.0) as session:
+            reset_resp = await session.post(f"{ENV_URL}/reset", params={"task_id": task})
+            reset_resp.raise_for_status()
+            result = reset_resp.json()
+            session_id = result.get("session_id")
+            observation = result["observation"]
 
-            action_text = get_model_message(client, observation, history)
-            try:
-                action_json = json.loads(action_text)
-                step_resp = await session.post(f"{ENV_URL}/step", params={"session_id": session_id}, json=action_json)
-                step_resp.raise_for_status()
-                result = step_resp.json()
-                reward = result.get("reward", 0.0)
-                done = result.get("done", False)
-                error = None
-                observation = result["observation"]
-            except Exception as exc:
-                reward = 0.0
-                done = True
-                error = str(exc)
+            for step in range(1, MAX_STEPS + 1):
+                if result.get("done"):
+                    break
 
-            rewards.append(reward)
-            steps_taken = step
-            log_step(step=step, action=action_text, reward=reward, done=done, error=error)
-            history.append(f"step={step} reward={reward:.3f}")
+                action_text = get_model_message(client, observation, history)
+                try:
+                    action_json = json.loads(action_text)
+                    step_resp = await session.post(
+                        f"{ENV_URL}/step",
+                        params={"session_id": session_id},
+                        json=action_json,
+                    )
+                    step_resp.raise_for_status()
+                    result = step_resp.json()
+                    reward = result.get("reward", 0.0)
+                    done = result.get("done", False)
+                    error = None
+                    observation = result["observation"]
+                except Exception as exc:
+                    reward = 0.0
+                    done = True
+                    error = str(exc)
 
-            if done:
-                break
+                rewards.append(reward)
+                steps_taken = step
+                log_step(step=step, action=action_text, reward=reward, done=done, error=error)
+                history.append(f"step={step} reward={reward:.3f}")
 
-    score = min(max(rewards[-1] if rewards else 0.0, 0.0), 1.0)
-    success = score >= SUCCESS_SCORE_THRESHOLD
-    log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+                if done:
+                    break
+
+        score = min(max(rewards[-1] if rewards else 0.0, 0.0), 1.0)
+        success = score >= SUCCESS_SCORE_THRESHOLD
+        log_end(success=success, steps=steps_taken, rewards=rewards)
 
 
 if __name__ == "__main__":

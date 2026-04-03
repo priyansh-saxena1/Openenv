@@ -15,7 +15,7 @@ observation:
   class_name: PyTorchDebugObservation
   module: src.pytorch_debug_env.models
 
-default_image: pytorch-debug-env:latest
+default_image: https://archcoder-pytorch-debug-env.hf.space
 spec_version: 1
 
 tags:
