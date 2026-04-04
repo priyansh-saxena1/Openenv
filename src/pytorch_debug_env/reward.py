@@ -81,7 +81,7 @@ def compute_step_reward(
             diagnosis_reward += max(0.0, 0.08 * (max_steps - step_num))
 
     total = 0.60 * delta + 0.20 * investigation_reward + 0.20 * diagnosis_reward + confirmation_bonus
-    total = round(min(max(total, -0.2), 1.0), 4)
+    total = round(min(max(total, 0.0), 1.0), 4)
 
     return total, {
         "hypothesis_quality": current_quality,

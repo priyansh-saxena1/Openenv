@@ -28,7 +28,10 @@ class ScenarioGenerator:
 
     def generate(self, difficulty: str, seed: int | None = None) -> Scenario:
         rng = random.Random(seed)
-        template = rng.choice([b for b in self.bug_templates if b.difficulty == difficulty])
+        candidates = [b for b in self.bug_templates if b.difficulty == difficulty]
+        if not candidates:
+            raise ValueError(f"Unknown difficulty: {difficulty}")
+        template = rng.choice(candidates)
 
         repo_files = self._base_repo(rng)
         repo_files = template.repo_mutator(repo_files, rng)

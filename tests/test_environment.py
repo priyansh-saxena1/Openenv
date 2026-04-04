@@ -10,3 +10,7 @@ async def test_env_reset():
     env = PyTorchDebugEnv(generator=generator)
     obs = await env.reset("easy")
     assert obs.task_id == "easy"
+    assert "train.py" in obs.revealed_files
+    assert "config/training_config.yaml" in obs.revealed_files
+    assert obs.step_num == 0
+    assert obs.steps_remaining >= 0
