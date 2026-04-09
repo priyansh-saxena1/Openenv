@@ -17,15 +17,22 @@ SUCCESS_SCORE_THRESHOLD = float(os.environ.get("SUCCESS_SCORE_THRESHOLD", "0.7")
 MAX_TOTAL_REWARD = float(os.environ.get("MAX_TOTAL_REWARD", "1.0"))
 
 
+def _sanitize_field(value: object) -> str:
+    text = str(value)
+    text = text.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+    return " ".join(text.split())
+
+
 def log_start(task, env, model):
     print(f"[START] task={task} env={env} model={model}", flush=True)
 
 
 def log_step(step, action, reward, done, error):
-    err = "null" if error is None else str(error)
+    safe_action = _sanitize_field(action)
+    err = "null" if error is None else _sanitize_field(error)
     done_str = "true" if done else "false"
     print(
-        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_str} error={err}",
+        f"[STEP] step={step} action={safe_action} reward={reward:.2f} done={done_str} error={err}",
         flush=True,
     )
 
@@ -65,29 +72,42 @@ History: {history}
     return (completion.choices[0].message.content or "").strip()
 
 
-async def main():
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-    tasks = [task.strip() for task in TASKS.split(",") if task.strip()]
+async def _run_task(task: str, client: OpenAI) -> None:
+    rewards: List[float] = []
+    history: List[str] = []
+    steps_taken = 0
 
-    for task in tasks:
-        rewards = []
-        history = []
-        steps_taken = 0
+    log_start(task=task, env="pytorch-debug-env", model=MODEL_NAME)
 
-        log_start(task=task, env="pytorch-debug-env", model=MODEL_NAME)
-
+    try:
         async with httpx.AsyncClient(timeout=60.0) as session:
             reset_resp = await session.post(f"{ENV_URL}/reset", params={"task_id": task})
             reset_resp.raise_for_status()
             result = reset_resp.json()
+
             session_id = result.get("session_id")
-            observation = result["observation"]
+            observation = result.get("observation")
+            if not session_id:
+                raise RuntimeError("Missing session_id in reset response")
+            if observation is None:
+                raise RuntimeError("Missing observation in reset response")
 
             for step in range(1, MAX_STEPS + 1):
                 if result.get("done"):
                     break
 
-                action_text = get_model_message(client, observation, history)
+                action_text = "null"
+                try:
+                    action_text = get_model_message(client, observation, history)
+                except Exception as exc:
+                    reward = 0.0
+                    done = True
+                    error = f"model_error: {exc}"
+                    rewards.append(reward)
+                    steps_taken = step
+                    log_step(step=step, action=action_text, reward=reward, done=done, error=error)
+                    break
+
                 try:
                     action_json = json.loads(action_text)
                     step_resp = await session.post(
@@ -99,12 +119,12 @@ async def main():
                     result = step_resp.json()
                     reward = result.get("reward", 0.0)
                     done = result.get("done", False)
-                    error = None
-                    observation = result["observation"]
+                    error = result.get("error")
+                    observation = result.get("observation", observation)
                 except Exception as exc:
                     reward = 0.0
                     done = True
-                    error = str(exc)
+                    error = f"step_error: {exc}"
 
                 rewards.append(reward)
                 steps_taken = step
@@ -113,10 +133,20 @@ async def main():
 
                 if done:
                     break
+    except Exception:
+        pass
 
-        score = min(max(rewards[-1] if rewards else 0.0, 0.0), 1.0)
-        success = score >= SUCCESS_SCORE_THRESHOLD
-        log_end(success=success, steps=steps_taken, rewards=rewards)
+    score = min(max(rewards[-1] if rewards else 0.0, 0.0), 1.0)
+    success = score >= SUCCESS_SCORE_THRESHOLD
+    log_end(success=success, steps=steps_taken, rewards=rewards)
+
+
+async def main():
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    tasks = [task.strip() for task in TASKS.split(",") if task.strip()]
+
+    for task in tasks:
+        await _run_task(task, client)
 
 
 if __name__ == "__main__":
