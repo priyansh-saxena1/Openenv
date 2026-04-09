@@ -16,6 +16,7 @@ MAX_STEPS = int(os.environ.get("MAX_STEPS", "5"))
 SUCCESS_SCORE_THRESHOLD = float(os.environ.get("SUCCESS_SCORE_THRESHOLD", "0.7"))
 MAX_TOTAL_REWARD = float(os.environ.get("MAX_TOTAL_REWARD", "1.0"))
 SEED = os.environ.get("SEED")
+MIN_LOG_REWARD = 0.01
 
 
 def _parse_seed(value: str | None) -> int | None:
@@ -114,7 +115,7 @@ async def _run_task(task: str, client: OpenAI) -> None:
                 try:
                     action_text = get_model_message(client, observation, history)
                 except Exception as exc:
-                    reward = 0.0
+                    reward = MIN_LOG_REWARD
                     done = True
                     error = f"model_error: {exc}"
                     rewards.append(reward)
@@ -136,7 +137,7 @@ async def _run_task(task: str, client: OpenAI) -> None:
                     error = result.get("error")
                     observation = result.get("observation", observation)
                 except Exception as exc:
-                    reward = 0.0
+                    reward = MIN_LOG_REWARD
                     done = True
                     error = f"step_error: {exc}"
 

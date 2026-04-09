@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from .bug_library import BUG_CATEGORIES
 
-EPSILON = 1e-3
+EPSILON = 1e-2
 
 
 def clamp_score(value: float) -> float:
