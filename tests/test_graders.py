@@ -83,3 +83,36 @@ def test_grade_hard_penalizes_red_herring():
     penalized = grade_hard(action, gt)
     assert penalized <= 0.9
     assert 0.0 < penalized < 1.0
+
+
+def test_grade_easy_perfect_is_not_one():
+    gt = {
+        "bug_type": "missing_zero_grad",
+        "primary_bug_file": "train.py",
+        "related_files": [],
+        "line_range": [10, 12],
+        "fix_strategy": "Call optimizer.zero_grad() before loss.backward()",
+    }
+    action = {
+        "bug_type": "missing_zero_grad",
+        "affected_file": "train.py",
+        "line_range": [10, 12],
+        "fix_strategy": "Call optimizer.zero_grad() before loss.backward()",
+        "confidence": 1.0,
+    }
+    score = grade_easy(action, gt)
+    assert 0.0 < score < 1.0
+
+
+def test_grader_empty_action_clamped():
+    gt = {
+        "bug_type": "data_leakage",
+        "primary_bug_file": "data/dataset.py",
+        "related_files": [],
+        "line_range": [4, 6],
+        "fix_strategy": "Ensure validation split is strictly separate from training",
+    }
+    action = {}
+    assert 0.0 < grade_easy(action, gt) < 1.0
+    assert 0.0 < grade_medium(action, gt) < 1.0
+    assert 0.0 < grade_hard(action, gt) < 1.0

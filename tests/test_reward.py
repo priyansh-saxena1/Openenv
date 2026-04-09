@@ -44,6 +44,24 @@ def test_final_diagnosis_score_bounds():
     assert 0.0 < score < 1.0
 
 
+def test_final_diagnosis_score_perfect_clamped():
+    gt = {
+        "bug_type": "missing_zero_grad",
+        "primary_bug_file": "train.py",
+        "related_files": [],
+        "line_range": [10, 12],
+        "fix_strategy": "Call optimizer.zero_grad() before loss.backward()",
+    }
+    action = {
+        "bug_type": "missing_zero_grad",
+        "affected_file": "train.py",
+        "line_range": [10, 12],
+        "fix_strategy": "Call optimizer.zero_grad() before loss.backward()",
+    }
+    score = final_diagnosis_score(action, gt)
+    assert 0.0 < score < 1.0
+
+
 def test_compute_step_reward_clamps_non_negative():
     gt = {
         "bug_type": "missing_zero_grad",
