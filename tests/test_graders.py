@@ -16,7 +16,9 @@ def test_grade_easy():
         "fix_strategy": "Call optimizer.zero_grad() before loss.backward()",
         "confidence": 0.8
     }
-    assert grade_easy(action, gt) > 0.8
+    score = grade_easy(action, gt)
+    assert score > 0.8
+    assert score < 1.0
 
 
 def test_grade_medium_related_file_bonus():
@@ -34,7 +36,9 @@ def test_grade_medium_related_file_bonus():
         "fix_strategy": "Ensure validation split is strictly separate from training",
         "confidence": 0.6,
     }
-    assert grade_medium(action, gt) >= grade_easy(action, gt)
+    score = grade_medium(action, gt)
+    assert score >= grade_easy(action, gt)
+    assert 0.0 < score < 1.0
 
 
 def test_grade_hard_category_partial_credit():
@@ -54,7 +58,9 @@ def test_grade_hard_category_partial_credit():
         "fix_strategy": "Use CrossEntropyLoss instead of MSE",
         "confidence": 0.5,
     }
-    assert grade_hard(action, gt) >= 0.18
+    score = grade_hard(action, gt)
+    assert score >= 0.18
+    assert 0.0 < score < 1.0
 
 
 def test_grade_hard_penalizes_red_herring():
@@ -76,3 +82,4 @@ def test_grade_hard_penalizes_red_herring():
     }
     penalized = grade_hard(action, gt)
     assert penalized <= 0.9
+    assert 0.0 < penalized < 1.0

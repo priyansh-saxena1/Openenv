@@ -87,7 +87,7 @@ async def test_reward_range_and_info_keys():
         ),
     )
     result = await env.step(action)
-    assert 0.0 <= result["reward"] <= 1.0
+    assert 0.0 < result["reward"] < 1.0
     for key in (
         "hypothesis_quality",
         "hypothesis_delta",
@@ -96,3 +96,69 @@ async def test_reward_range_and_info_keys():
         "confirmation_bonus",
     ):
         assert key in result["info"]
+
+
+@pytest.mark.asyncio
+async def test_extend_loss_curve_increases_window():
+    env = make_env()
+    await env.reset("easy", seed=123)
+    action = PyTorchDebugAction(
+        current_hypothesis=base_hypothesis(),
+        investigation_action=InvestigationAction(action="extend_loss_curve"),
+    )
+    extended = await env.step(action)
+    extended_len = len(extended["observation"].loss_curve_window)
+
+    env_base = make_env()
+    await env_base.reset("easy", seed=123)
+    base = await env_base.step(PyTorchDebugAction(current_hypothesis=base_hypothesis()))
+    base_len = len(base["observation"].loss_curve_window)
+    assert extended_len > base_len
+
+
+@pytest.mark.asyncio
+async def test_extend_gpu_profile_increases_window():
+    env = make_env()
+    await env.reset("easy", seed=321)
+    action = PyTorchDebugAction(
+        current_hypothesis=base_hypothesis(),
+        investigation_action=InvestigationAction(action="extend_gpu_profile"),
+    )
+    extended = await env.step(action)
+    extended_len = len(extended["observation"].gpu_profile_window)
+
+    env_base = make_env()
+    await env_base.reset("easy", seed=321)
+    base = await env_base.step(PyTorchDebugAction(current_hypothesis=base_hypothesis()))
+    base_len = len(base["observation"].gpu_profile_window)
+    assert extended_len > base_len
+
+
+@pytest.mark.asyncio
+async def test_reveal_log_chunk_extends_tail():
+    env = make_env()
+    await env.reset("easy", seed=77)
+    action = PyTorchDebugAction(
+        current_hypothesis=base_hypothesis(),
+        investigation_action=InvestigationAction(action="reveal_log_chunk"),
+    )
+    extended = await env.step(action)
+    extended_len = len(extended["observation"].training_log_tail)
+
+    env_base = make_env()
+    await env_base.reset("easy", seed=77)
+    base = await env_base.step(PyTorchDebugAction(current_hypothesis=base_hypothesis()))
+    base_len = len(base["observation"].training_log_tail)
+    assert extended_len >= base_len
+
+
+@pytest.mark.asyncio
+async def test_run_diagnostic_exposes_report():
+    env = make_env()
+    await env.reset("easy", seed=11)
+    action = PyTorchDebugAction(
+        current_hypothesis=base_hypothesis(),
+        investigation_action=InvestigationAction(action="run_diagnostic"),
+    )
+    result = await env.step(action)
+    assert result["observation"].diagnostic_report

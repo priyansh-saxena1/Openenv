@@ -1,5 +1,6 @@
 # tests/test_reward.py
 from src.pytorch_debug_env.reward import (
+    clamp_score,
     compute_step_reward,
     final_diagnosis_score,
     hypothesis_quality,
@@ -39,7 +40,8 @@ def test_final_diagnosis_score_bounds():
         "line_range": [10, 12],
         "fix_strategy": "Call optimizer.zero_grad() before loss.backward()",
     }
-    assert 0.0 <= final_diagnosis_score(action, gt) <= 1.0
+    score = final_diagnosis_score(action, gt)
+    assert 0.0 < score < 1.0
 
 
 def test_compute_step_reward_clamps_non_negative():
@@ -65,5 +67,10 @@ def test_compute_step_reward_clamps_non_negative():
         step_num=1,
         max_steps=5,
     )
-    assert reward >= 0.0
+    assert 0.0 < reward < 1.0
     assert components["investigation_reward"] <= 0.0
+
+
+def test_clamp_score_open_interval():
+    assert 0.0 < clamp_score(0.0) < 1.0
+    assert 0.0 < clamp_score(1.0) < 1.0

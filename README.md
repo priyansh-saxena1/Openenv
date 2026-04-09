@@ -56,8 +56,10 @@ with env.sync() as client:
 | Task | Difficulty | Description |
 |------|-----------|-------------|
 | `easy` | ⭐ | Single-file bug — missing `zero_grad`, wrong loss |
-| `medium` | ⭐⭐ | Multi-file root cause — data leakage, scheduler mismatch |
+| `medium` | ⭐⭐ | Multi-file root cause — data leakage, learning-rate misconfig |
 | `hard` | ⭐⭐⭐ | Silent failure — memory leak, AMP overflow, red herrings |
+
+Each difficulty draws from multiple bug templates, so repeated runs do not recycle the same exact failure.
 
 ## Reward Structure
 
@@ -66,6 +68,33 @@ with env.sync() as client:
 - **Final diagnosis** (20%) — accuracy of committed diagnosis vs ground truth
 
 Scores range from `0.0` to `1.0`. Partial credit for correct bug category on hard tasks.
+
+## Investigation Actions
+
+- `reveal_file`: reveal a file from the synthetic repo
+- `extend_loss_curve`: reveal more loss-curve points
+- `extend_gpu_profile`: reveal more GPU profile points
+- `reveal_log_chunk`: append additional training log lines
+- `run_diagnostic`: expose a diagnostic summary report
+
+## Reproducibility
+
+Use `SEED` to make scenario selection and artifacts deterministic across runs:
+
+```bash
+set SEED=42
+python inference.py
+```
+
+## Baseline Scores
+
+Run `inference.py` with a fixed `SEED` to record your baseline scores. The script prints per-task `[END]` lines with the final rewards.
+
+Example template (fill after running):
+
+| Model | Seed | Easy | Medium | Hard |
+|------|------|------|--------|------|
+| gpt-3.5-turbo | 42 | 0.xx | 0.xx | 0.xx |
 
 ## Environment State
 

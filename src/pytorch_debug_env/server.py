@@ -27,13 +27,13 @@ async def health():
 
 
 @app.post("/reset")
-async def reset(task_id: str = "easy"):
+async def reset(task_id: str = "easy", seed: int | None = None):
     global latest_session_id
     session_id = str(uuid4())
     env = PyTorchDebugEnv(generator=ScenarioGenerator(BUG_TEMPLATES))
     sessions[session_id] = env
     latest_session_id = session_id
-    obs = await env.reset(task_id=task_id)
+    obs = await env.reset(task_id=task_id, seed=seed)
     return {"session_id": session_id, "observation": obs, "done": False}
 
 

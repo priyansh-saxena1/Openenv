@@ -51,6 +51,7 @@ class PyTorchDebugObservation(BaseModel):
     loss_curve_window: List[Dict]
     gpu_profile_window: List[Dict]
     training_log_tail: str
+    diagnostic_report: Optional[str] = None
     step_num: int
     steps_remaining: int
     investigation_budget: int
@@ -65,6 +66,7 @@ class PyTorchDebugState(BaseModel):
     current_step: int
     revealed_files: List[str]
     remaining_files: List[str]
+    diagnostic_revealed: bool = False
     done: bool
     final_score: float = 0.0
 

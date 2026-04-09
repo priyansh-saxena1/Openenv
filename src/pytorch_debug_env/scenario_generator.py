@@ -19,14 +19,17 @@ class Scenario:
     loss_curve: List[Dict]
     gpu_profile: List[Dict]
     training_log: str
+    diagnostic_report: str
     ground_truth: Dict
 
 
 class ScenarioGenerator:
     def __init__(self, bug_templates: List[BugTemplate]):
+        """Create a generator that samples from a set of bug templates."""
         self.bug_templates = bug_templates
 
     def generate(self, difficulty: str, seed: int | None = None) -> Scenario:
+        """Build a scenario with deterministic artifacts when a seed is provided."""
         rng = random.Random(seed)
         candidates = [b for b in self.bug_templates if b.difficulty == difficulty]
         if not candidates:
@@ -39,6 +42,7 @@ class ScenarioGenerator:
         loss_curve = template.artifact_generator("loss_curve", rng)
         gpu_profile = template.artifact_generator("gpu_profile", rng)
         training_log = template.artifact_generator("training_log", rng)
+        diagnostic_report = template.artifact_generator("diagnostic_report", rng)
 
         ground_truth = {
             "bug_type": template.bug_type,
@@ -57,6 +61,7 @@ class ScenarioGenerator:
             loss_curve=loss_curve,
             gpu_profile=gpu_profile,
             training_log=training_log,
+            diagnostic_report=diagnostic_report,
             ground_truth=ground_truth,
         )
 

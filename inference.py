@@ -15,6 +15,16 @@ TASKS = os.environ.get("TASKS", "easy,medium,hard")
 MAX_STEPS = int(os.environ.get("MAX_STEPS", "5"))
 SUCCESS_SCORE_THRESHOLD = float(os.environ.get("SUCCESS_SCORE_THRESHOLD", "0.7"))
 MAX_TOTAL_REWARD = float(os.environ.get("MAX_TOTAL_REWARD", "1.0"))
+SEED = os.environ.get("SEED")
+
+
+def _parse_seed(value: str | None) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
 
 
 def _sanitize_field(value: object) -> str:
@@ -57,7 +67,7 @@ You are debugging a PyTorch training job. Respond ONLY with valid JSON matching 
 }}
 
 Valid action types: reveal_file, extend_loss_curve, extend_gpu_profile, reveal_log_chunk, run_diagnostic
-Valid bug types: missing_zero_grad, data_leakage, memory_leak, learning_rate_too_high, gradient_explosion
+Valid bug types: missing_zero_grad, data_leakage, memory_leak, learning_rate_too_high, gradient_explosion, wrong_loss_function, amp_overflow
 
 Observation:
 {json.dumps(observation)[:8000]}
@@ -76,12 +86,16 @@ async def _run_task(task: str, client: OpenAI) -> None:
     rewards: List[float] = []
     history: List[str] = []
     steps_taken = 0
+    seed_value = _parse_seed(SEED)
 
     log_start(task=task, env="pytorch-debug-env", model=MODEL_NAME)
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as session:
-            reset_resp = await session.post(f"{ENV_URL}/reset", params={"task_id": task})
+            reset_params = {"task_id": task}
+            if seed_value is not None:
+                reset_params["seed"] = seed_value
+            reset_resp = await session.post(f"{ENV_URL}/reset", params=reset_params)
             reset_resp.raise_for_status()
             result = reset_resp.json()
 
