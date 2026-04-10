@@ -23,6 +23,6 @@ def test_log_step_sanitizes_fields(capsys):
 
 
 def test_log_end_format(capsys):
-    log_end(success=True, steps=3, rewards=[0.0, 0.1, 1.0])
+    log_end(success=True, steps=3, score=0.99, rewards=[0.0, 0.1, 1.0])
     out = capsys.readouterr().out.strip()
-    assert out == "[END] success=true steps=3 rewards=0.00,0.10,1.00"
+    assert out == "[END] success=true steps=3 score=0.99 rewards=0.00,0.10,1.00"

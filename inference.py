@@ -17,6 +17,8 @@ SUCCESS_SCORE_THRESHOLD = float(os.environ.get("SUCCESS_SCORE_THRESHOLD", "0.7")
 MAX_TOTAL_REWARD = float(os.environ.get("MAX_TOTAL_REWARD", "1.0"))
 SEED = os.environ.get("SEED")
 MIN_LOG_REWARD = 0.01
+MIN_SCORE = 0.01
+MAX_SCORE = 0.99
 
 
 def _parse_seed(value: str | None) -> int | None:
@@ -48,11 +50,11 @@ def log_step(step, action, reward, done, error):
     )
 
 
-def log_end(success, steps, rewards):
+def log_end(success, steps, score, rewards):
     success_str = "true" if success else "false"
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
-        f"[END] success={success_str} steps={steps} rewards={rewards_str}",
+        f"[END] success={success_str} steps={steps} score={score:.2f} rewards={rewards_str}",
         flush=True,
     )
 
@@ -151,9 +153,10 @@ async def _run_task(task: str, client: OpenAI) -> None:
     except Exception:
         pass
 
-    score = min(max(rewards[-1] if rewards else 0.0, 0.0), 1.0)
+    score = rewards[-1] if rewards else MIN_SCORE
+    score = min(max(score, MIN_SCORE), MAX_SCORE)
     success = score >= SUCCESS_SCORE_THRESHOLD
-    log_end(success=success, steps=steps_taken, rewards=rewards)
+    log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 
 async def main():
